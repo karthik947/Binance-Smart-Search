@@ -1,0 +1,278 @@
+<html lang="en">
+<title>Binance Smart Search</title>
+<head>
+<link rel="stylesheet" href="inpagesearch.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">
+<link href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<!-- Insert this line above script imports  -->
+<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
+
+<!-- normal script imports etc  -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.6/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js"></script>
+<script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>    
+    
+<!-- Insert this line after script imports -->
+<script>if (window.module) module = window.module;</script>    
+
+</head> 
+<body>
+    <div class="container">
+        
+    <h1>Binance Smart Search</h1>
+    <p>This tools allows you to search for coins with multiple delta filters. E.g. -3% followed by +1. Note that due to API call limits, only the last 3.47 days(5000 mins) of data is analyzed.</p>
+    <br>
+    <div class="row">
+        <button onclick="addCondition();" type="button" class="btn btn-dark">Add Condition</button>
+    </div>
+    <br>
+    <div id="conditions">
+        <div class="row">
+                <input id="condition1" type="text" placeholder="Condition#1">
+        </div>
+    </div>
+    <br>
+    <div class="row">
+        <input class="col-sm-12" id="filtersymbols" type="text" placeholder="Filter Pairs comma separated list">
+    </div>
+    <br>
+    <div class="row">
+        <button onclick="runAnalysis();" type="button" class="btn btn-success">Run</button>
+    </div>
+    <br><br>
+    <!-- End of Container Bootstrap ---> 
+    <h4>Report</h4>
+    <div id="result">
+            <table id="resultTable" class="table">
+                <thead>
+                    <tr>
+                        <th>Date/Time</th>
+                        <th>Pair</th>
+                        <th>Analysis</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+     </div>
+     <br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+    <div class="row">
+     <button type="button" class="btn btn-warning float-right" data-toggle="collapse" data-target="#donate">Buy me a cup of coffee</button>
+    </div>
+    <div id="donate" class="collapse">
+        <br>
+        <div class="card">
+        <div class="card-body">
+          <h4 class="card-title">Note from developer[Karthik D]:</h4>
+          <p class="card-text">Thank you for your contribution. Knowing that my efforts have had a positive impact on the community gives me the motivation to make more quality content. Cheers!!! </p>
+          <p style="" class="card-text">BTC Address: 1BwSbBvx98bqSEHFETnLqEBC7dZqf4yLv4 <br /> MEW Address: 0xFC5479343d791eca8EEBB01C488e0a5F460f0453</p>
+        </div>
+        </div>
+     </div>
+    </div>
+</body>
+<script>
+var gv_conditions = 1,gv_markup="",gv_symarray=[];
+    
+function addCondition(){
+    var lv_coll=[];
+    for(c=1;c<=gv_conditions;c++){
+       lv_coll.push(parseFloat(document.getElementById('condition' + c).value)); 
+    }
+    gv_conditions++;
+    document.getElementById('conditions').innerHTML += '<div class="row"><input id="condition' + gv_conditions + '" type="text" placeholder="Condition#' + gv_conditions + '"></div>';
+    for(c=1;c<=gv_conditions-1;c++){
+        if(lv_coll[c-1]){
+           document.getElementById('condition' + c).value = lv_coll[c-1];
+        }
+    }
+}
+
+
+
+//setTimeout(runAnalysis,15*1000);
+
+
+
+function runAnalysis(){
+    gv_symbols=[];
+    downloadSymbols()
+    .then(() => {
+        return analyzeEachSymbol();
+    }).then(() => {
+        if(gv_markup.length){
+           $("#resultTable tbody").append(gv_markup);
+           gv_markup="";
+        }
+    }).catch()
+}
+
+function downloadSymbols(){
+    return new Promise((resolve,reject) => {
+        request('GET','https://api.binance.com/api/v3/ticker/price').
+        then((r1) => {
+            var lv_r1Resp = JSON.parse(r1.target.responseText);
+            var lv_filtersym = document.getElementById('filtersymbols').value;
+            if(lv_filtersym.length){
+                var lv_filsymary = lv_filtersym.split(',');
+                for(i=0;i<lv_r1Resp.length;i++){
+                    if(lv_filsymary.indexOf(lv_r1Resp[i]['symbol']) != -1){
+                       gv_symarray.push(lv_r1Resp[i]['symbol']);
+                    }
+                }
+            }
+            else{
+                for(i=0;i<lv_r1Resp.length;i++){
+                       gv_symarray.push(lv_r1Resp[i]['symbol']);
+                }
+            }
+            resolve();
+        }).
+        catch((err) => {
+            console.log(err);
+        });
+    });
+}
+
+function analyzeEachSymbol(){
+    return new Promise((resolve,reject) => {
+        var lv_counter = 0;
+        //getAllConditions
+        var lv_cond=[];
+        for(j=1;j<=gv_conditions;j++){
+            lv_cond.push(parseFloat(document.getElementById('condition' + j).value));
+        }
+        /////////////////
+        for(j=0;j<gv_symarray.length;j++){
+            request('GET','https://api.binance.com/api/v1/klines?symbol=' + gv_symarray[j]  + '&interval=5m&limit=1000').
+            then((r1) => {
+                lv_counter++;
+                var lv_cdata = JSON.parse(r1.target.responseText);
+                var lv_r1URL = r1.target.responseURL;
+                var x1 = lv_r1URL.split("symbol=");
+                var x2 = x1[1].split("&");
+                var lv_sym = x2[0];
+                var lv_cdn = true,lv_continue=true;
+                var lv_result=[];
+                var lv_subc=lv_cdata.length-1;
+            
+                for(l=lv_cond.length-1;l>=0;l--){//FOR EACH CONDITION
+                    var lv_pup=0,lv_pdown=0;
+                    var lv_cdnType="";
+                    if(!lv_cdn){
+                        break;  
+                    }
+                    else{
+                        lv_continue=true;
+                    }
+                    for(k=lv_subc;k>=0;k--){
+                        if(lv_continue){
+                            var lv_pclose = parseFloat(lv_cdata[k][4]);
+                            if(lv_cond[l] > 0){
+                                lv_pup = lv_pclose*(1 + lv_cond[l]/100);
+                                lv_pdown = lv_pclose*(1 - lv_cond[l]/100);
+                            }
+                            else{
+                                lv_pup = lv_pclose*(1 - lv_cond[l]/100);
+                                lv_pdown = lv_pclose*(1 + lv_cond[l]/100);
+                            }
+                            lv_continue=false;
+                            continue;  
+                        }
+                        else{
+                            var lv_phigh = parseFloat(lv_cdata[k][2]);
+                            var lv_plow = parseFloat(lv_cdata[k][3]);
+                            if(lv_cond[l] > 0){
+                                if(lv_plow <= lv_pdown){
+                                    lv_result.push(lv_cond[l] + '(' + formatDate(lv_cdata[k][0]) + ')');
+                                    lv_subc = k;
+                                    break;
+                                }
+                                if(lv_phigh >= lv_pup){
+                                    lv_cdn=false;
+                                    lv_subc = k;
+                                    break;
+                                } 
+                            }
+                            else{
+                                if(lv_plow <= lv_pdown){
+                                    lv_cdn=false;
+                                    lv_subc = k;
+                                    break;
+                                }
+                                if(lv_phigh >= lv_pup){
+                                    lv_result.push(lv_cond[l] + '(' + formatDate(lv_cdata[k][0]) + ')');
+                                    lv_subc = k;
+                                    break;
+                                } 
+                            }
+                        }
+                    }
+                }
+                
+                if(lv_result.length != gv_conditions){
+                   lv_cdn=false;
+                }
+                
+                if(lv_cdn){
+                    var d = new Date();
+                    var lv_anayze="";
+                    for(j=lv_result.length-1;j>=0;j--){
+                        if(j === 0){
+                            lv_anayze += lv_result[j];
+                        }
+                        else{
+                            lv_anayze += lv_result[j] + ' => ';   
+                        }
+                    }
+                    gv_markup += '<tr><td>' + d + '</td><td>' + lv_sym + '</td><td>' + lv_anayze + '</td></tr>';
+                }
+                if(lv_counter === gv_symarray.length){
+                   resolve();
+                }
+            }).
+            catch((err) => {
+                console.log(err);
+            });
+        }
+        
+    });
+}
+
+function request(method, url) {
+    return new Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, url);
+        xhr.onload = resolve;
+        xhr.onerror = reject;
+        xhr.send();
+    });
+} 
+
+
+
+function formatDate(ts){
+    var d = new Date(ts);
+    year = d.getFullYear();
+    month = d.getMonth() + 1;
+    day = d.getDate();
+    hr = d.getHours();
+    min = d.getMinutes();
+    sec = d.getSeconds();
+    return (month + '-' + day+ '-' + year + ' ' + hr + ':' + min + ':' + sec);
+}
+
+
+
+
+
+
+
+
+
+
+</script>
+</html>
